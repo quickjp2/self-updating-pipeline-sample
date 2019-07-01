@@ -1,0 +1,73 @@
+resource_types:
+- name: concourse-pipeline
+  type: docker-image
+  source:
+    repository: concourse/concourse-pipeline-resource
+
+resources:
+- name: <concourse>-<team>-pipelines
+  type: concourse-pipelines
+  source:
+    target: https://<concourse_url>
+    insecure: "false"
+    teams:
+    - name: <concourse_team_name>
+      username: ((CONCOURSE_USERNAME))
+      password: ((CONCOURSE_PASSWORD))
+
+- name: app-pipeline-source
+  type: git
+  source:
+    uri: <repo_url>
+    branch: master
+    private_key: ((GIT_PRIVATE_KEY))
+    paths: [ci/*]
+
+- name: app-source
+  type: git
+  source:
+    uri: <app_repo_url>
+    branch: master
+    private_key: ((GIT_PRIVATE_KEY))
+    ignore_paths: [ci/*]
+
+- name: cloudfoundry-foundation
+  type: cf
+  source:
+    api: "https://api.sys.<foundation_url>"
+    username: ((ci-username))
+    password: ((ci-password))
+    organization: ((ci-org))
+    space: ((ci-space))
+
+groups:
+- name: pipeline-updater
+  jobs:
+  - set-<app_name>-pipeline
+- name: application
+  jobs:
+  - push-<app_name>-app
+
+jobs:
+- name: set-<app_name>-pipeline
+  plan:
+  - get: resource
+    resource: app-pipeline-source
+    trigger: true
+  - put: <concourse>-<team>-pipelines
+    params:
+      pipelines:
+      - name: <app_name>-pipeline
+        team: <concourse_team_name>
+        config_file: resource/ci/pipelines/pipeline.yml
+        unpaused: true
+
+- name: push-<app_name>-app
+  plan:
+  - get: resource
+    resource: app-source
+    trigger: true
+  - put: cloudfoundry-foundation
+    params:
+      manifest: resource/manifest.yml
+      path: resource

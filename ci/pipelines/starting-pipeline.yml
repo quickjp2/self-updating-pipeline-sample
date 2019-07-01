@@ -1,0 +1,43 @@
+resource_types:
+- name: concourse-pipelines
+  type: docker-image
+  source:
+    repository: concourse/concourse-pipeline-resource
+
+resources:
+- name: <concourse>-<team>-pipelines
+  type: concourse-pipelines
+  source:
+    target: https://<concourse_url>
+    insecure: "false"
+    teams:
+    - name: <concourse_team_name>
+      username: ((CONCOURSE_USERNAME))
+      password: ((CONCOURSE_PASSWORD))
+
+- name: app-pipeline-source
+  type: git
+  source:
+    uri: <app_repo_url>
+    branch: master
+    private_key: ((GIT_PRIVATE_KEY))
+    paths: [ci/*]
+
+groups:
+- name: pipeline-updater
+  jobs:
+  - set-<app_name>-pipeline
+
+jobs:
+- name: set-<app_name>-pipeline
+  plan:
+  - get: resource
+    resource: app-pipeline-source
+    trigger: true
+  - put: <concourse>-<team>-pipelines
+    params:
+      pipelines:
+      - name: <app_name>-pipeline
+        team: <concourse_team_name>
+        config_file: resource/ci/pipelines/pipeline.yml
+        unpaused: true
