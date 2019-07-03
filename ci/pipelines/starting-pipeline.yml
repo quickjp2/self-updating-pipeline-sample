@@ -16,6 +16,8 @@ resources:
       password: ((CONCOURSE_PASSWORD))
 
 - name: app-pipeline-source
+  check_every: 12h
+  webhook: <app_name>-pipeline
   type: git
   source:
     uri: <app_repo_url>
@@ -30,6 +32,8 @@ groups:
 
 jobs:
 - name: set-<app_name>-pipeline
+  build_log_retention:
+    builds: 10
   plan:
   - get: resource
     resource: app-pipeline-source
